@@ -40,11 +40,13 @@ def ml_loop(side: str):
         bally = scene_info["ball"][1] + 2.5
         platformx = scene_info["platform_1P"][0] + 20
 
-        predictx = 95
-        if bally > 257 and ballspeedy > 0:
-            predictx = ballx + (ballspeedx * (450 - bally)/ballspeedy) # + randint(-3, 3)
+        predictx = 100
+        if bally > 200 and ballspeedy > 0:
+            predictx = ballx + (ballspeedx * (410 + ballspeedy - bally)/ballspeedy) # + randint(-3, 3)
+            # predictx = 400 * ballx // bally
+            # print('pred = ', predictx, 'x = ', ballx, 'plat = ', platformx, 'y = ', bally)
         else:
-            predictx = 95
+            predictx = 100
 
         if predictx == platformx: return 0
         if platformx < predictx: return 1
@@ -77,6 +79,8 @@ def ml_loop(side: str):
     while True:
         # 3.1. Receive the scene information sent from the game process
         scene_info = comm.recv_from_game()
+
+        # print('y = ', scene_info["ball"][1] + 2.5)
 
         # 3.2. If either of two sides wins the game, do the updating or
         #      resetting stuff and inform the game process when the ml process
