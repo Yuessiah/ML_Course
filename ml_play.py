@@ -39,14 +39,33 @@ def ml_loop(side: str):
         ballx = scene_info["ball"][0] + 2.5
         bally = scene_info["ball"][1] + 2.5
         platformx = scene_info["platform_1P"][0] + 20
+        blockerx = scene_info["blocker"][0]
+        blockery = scene_info["blocker"][1]
+        dir = 1
+
+        for i in range(30):
+            nxtx = ballx + i*ballspeedx
+            nxty = bally + i*ballspeedy
+            if (0 >= nxtx or nxtx >= 200):
+                dir = -1
+                break
 
         predictx = 100
-        if bally > 200 and ballspeedy > 0:
-            predictx = ballx + (ballspeedx * (410 + ballspeedy - bally)/ballspeedy) # + randint(-3, 3)
-            # predictx = 400 * ballx // bally
-            # print('pred = ', predictx, 'x = ', ballx, 'plat = ', platformx, 'y = ', bally)
+        if ballspeedy > 0:
+            if bally <= 270:
+                predictx = ballx + dir*(ballspeedx * (420 - bally)/ballspeedy) # + randint(-3, 3)
+            elif bally > 200:
+                predictx = ballx + (ballspeedx * (420 - bally)/ballspeedy)
+                if 70 <= predictx and predictx <= 130:
+                    alpha = 2*ballspeedx//abs(ballspeedx)
+                    predictx = predictx + randint(-3+alpha, 3+alpha)
+                # predictx = 400 * ballx // bally
+                print('pred = ', predictx, 'x = ', ballx, 'plat = ', platformx, 'y = ', bally)
         else:
-            predictx = 100
+            if 70 <= ballx and ballx <= 130:
+                predictx = ballx
+            else:
+                predictx = 100
 
         if predictx == platformx: return 0
         if platformx < predictx: return 1
