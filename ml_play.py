@@ -52,17 +52,17 @@ def ml_loop(side: str):
 
         predictx = 100
         if ballspeedy > 0:
-            if bally <= 270:
+            if bally <= 280:
                 predictx = ballx + dir*(ballspeedx * (420 - bally)/ballspeedy) # + randint(-3, 3)
             elif bally > 200:
                 predictx = ballx + (ballspeedx * (420 - bally)/ballspeedy)
                 if 70 <= predictx and predictx <= 130:
                     alpha = 2*ballspeedx//abs(ballspeedx)
-                    predictx = predictx + randint(-3+alpha, 3+alpha)
+                    predictx = predictx + randint(-2+alpha, 2+alpha)
                 # predictx = 400 * ballx // bally
                 print('pred = ', predictx, 'x = ', ballx, 'plat = ', platformx, 'y = ', bally)
         else:
-            if 70 <= ballx and ballx <= 130:
+            if 75 <= ballx and ballx <= 125:
                 predictx = ballx
             else:
                 predictx = 100
