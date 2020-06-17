@@ -1,133 +1,119 @@
-"""
-The template of the script for the machine learning process in game pingpong
-"""
+import pprint, queue
 
-# Import the necessary modules and classes
-from mlgame.communication import ml as comm
-from random import randint
+class MLPlay:
+    def __init__(self, player):
+        self.player = player
+        if self.player == "player1":
+            self.player_no = 0
+        elif self.player == "player2":
+            self.player_no = 1
+        elif self.player == "player3":
+            self.player_no = 2
+        elif self.player == "player4":
+            self.player_no = 3
+        self.car_pos = (0,0)                                       # pos initial
+        self.lanes = [35, 105, 175, 245, 315, 385, 455, 525, 595]  # lanes center
+        self.last_command = []
+        pass
 
-def ml_loop(side: str):
-    """
-    The main loop for the machine learning process
-    The `side` parameter can be used for switch the code for either of both sides,
-    so you can write the code for both sides in the same script. Such as:
-    ```python
-    if side == "1P":
-        ml_loop_for_1P()
-    else:
-        ml_loop_for_2P()
-    ```
-    @param side The side which this script is executed for. Either "1P" or "2P".
-    """
+    def update(self, scene_info):
+        if scene_info["status"] != "ALIVE":
+            return "RESET"
 
-    # === Here is the execution order of the loop === #
-    # 1. Put the initialization code here
-    ball_served = False
-    def move_to(player, pred) : #move platform to predicted position to catch ball
-        if player == '1P':
-            if scene_info["platform_1P"][0]+20  > (pred-10) and scene_info["platform_1P"][0]+20 < (pred+10): return 0 # NONE
-            elif scene_info["platform_1P"][0]+20 <= (pred-10) : return 1 # goes right
-            else : return 2 # goes left
-        else :
-            if scene_info["platform_2P"][0]+20  > (pred-10) and scene_info["platform_2P"][0]+20 < (pred+10): return 0 # NONE
-            elif scene_info["platform_2P"][0]+20 <= (pred-10) : return 1 # goes right
-            else : return 2 # goes left
+        grid = [[0 for i in range(5)] for j in range(5)]
 
-    def ml_loop_for_1P():
-        ballspeedx = scene_info["ball_speed"][0]
-        ballspeedy = scene_info["ball_speed"][1]
-        ballx = scene_info["ball"][0] + 2.5
-        bally = scene_info["ball"][1] + 2.5
-        platformx = scene_info["platform_1P"][0] + 20
-        blockerx = scene_info["blocker"][0]
-        blockery = scene_info["blocker"][1]
-        dir = 1
+        self.car_pos = scene_info[self.player]
+        if len(self.car_pos) != 2:
+            return 'SPEED'
 
-        for i in range(30):
-            nxtx = ballx + i*ballspeedx
-            nxty = bally + i*ballspeedy
-            if (0 >= nxtx or nxtx >= 200):
-                dir = -1
+        if (self.car_pos[0] - 35) % 70 != 0:
+            return self.last_command
+
+        for car in scene_info['cars_info']:
+            if car['id'] == self.player_no:
+                continue
+
+            x = car['pos'][0] - self.car_pos[0]
+            y = car['pos'][1] - self.car_pos[1]
+            cmp = lambda a: 1 if a >= 0 else -1
+
+            offset = [abs(x) // 70, abs(y) // 120]
+            remain = [abs(x) %  70, abs(y) %  120]
+            for i in range(2):
+                if remain[i] < 10:
+                    remain[i] = 0
+
+            if max(offset[0], offset[1]) > 2:
+                continue
+
+            x_idx = 2 + cmp(x) * offset[0]
+            y_idx = 2 + cmp(y) * offset[1]
+            grid[y_idx][x_idx] = None
+
+            if remain[0] and 0 <= x_idx + cmp(x) < 5:
+                grid[y_idx][x_idx + cmp(x)] = None
+            if remain[1] and 0 <= y_idx + cmp(y) < 5:
+                grid[y_idx + cmp(y)][x_idx] = None
+
+        for i in range(1, 3):
+            if self.car_pos[0] - i * 70 < self.lanes[0]:
+                for j in range(len(grid)):
+                    grid[j][2 - i] = None
+
+            if self.car_pos[0] + i * 70 > self.lanes[-1]:
+                for j in range(len(grid)):
+                    grid[j][2 + i] = None
+
+        goal = None
+        q = queue.Queue()
+        q.put([2, 2])
+        need_brake = True if grid[2][2] == None else False
+        grid[2][2] = [0, 0]
+        while not q.empty():
+            t = q.get()
+            direction = [[-1, 0], [1, 0], [0, -1], [0, 1]]
+
+            goal = t
+            if t[0] == 0:
                 break
 
-        predictx = 100
-        if ballspeedy > 0:
-            if bally <= 280:
-                predictx = ballx + dir*(ballspeedx * (420 - bally)/ballspeedy) # + randint(-3, 3)
-            elif bally > 200:
-                predictx = ballx + (ballspeedx * (420 - bally)/ballspeedy)
-                if 70 <= predictx and predictx <= 130:
-                    alpha = 2*ballspeedx//abs(ballspeedx)
-                    predictx = predictx + randint(-2+alpha, 2+alpha)
-                # predictx = 400 * ballx // bally
-                print('pred = ', predictx, 'x = ', ballx, 'plat = ', platformx, 'y = ', bally)
-        else:
-            if 75 <= ballx and ballx <= 125:
-                predictx = ballx
-            else:
-                predictx = 100
+            for d in direction:
+                p = [t[0] + d[0], t[1] + d[1]]
+                if 0 <= p[0] < len(grid[0]) and 0 <= p[1] < len(grid) and grid[p[0]][p[1]] == 0:
+                    grid[p[0]][p[1]] = [-d[0], -d[1]]
+                    q.put(p)
 
-        if predictx == platformx: return 0
-        if platformx < predictx: return 1
-        if platformx > predictx: return 2
+        #pprint.pprint(grid)
+
+        if need_brake:
+            self.last_command = ['BRAKE']
+            return self.last_command
+
+        command = ['SPEED']
+        if grid[1][2] == None:
+            command.remove('SPEED')
 
 
-    def ml_loop_for_2P():  # as same as 1P
-        if scene_info["ball_speed"][1] > 0 :
-            return move_to(player = '2P',pred = 100)
-        else :
-            x = ( scene_info["platform_2P"][1]+30-scene_info["ball"][1] ) // scene_info["ball_speed"][1]
-            pred = scene_info["ball"][0]+(scene_info["ball_speed"][0]*x)
-            bound = pred // 200
-            if (bound > 0):
-                if (bound%2 == 0):
-                    pred = pred - bound*200
-                else :
-                    pred = 200 - (pred - 200*bound)
-            elif (bound < 0) :
-                if bound%2 ==1:
-                    pred = abs(pred - (bound+1) *200)
-                else :
-                    pred = pred + (abs(bound)*200)
-            return move_to(player = '2P',pred = pred)
+        last_move = [0, 0]
+        while goal != [2, 2]:
+            last_move = grid[goal[0]][goal[1]]
+            goal[0] += last_move[0]
+            goal[1] += last_move[1]
 
-    # 2. Inform the game process that ml process is ready
-    comm.ml_ready()
+        if last_move == [-1, 0]:
+            command.append('BRAKE')
+        elif last_move == [0, 1]:
+            command.append('MOVE_LEFT')
+        elif last_move == [0, -1]:
+            command.append('MOVE_RIGHT')
 
-    # 3. Start an endless loop
-    while True:
-        # 3.1. Receive the scene information sent from the game process
-        scene_info = comm.recv_from_game()
+        #print(command)
+        self.last_command = command
+        return command
 
-        # print('y = ', scene_info["ball"][1] + 2.5)
+    def reset(self):
+        """
+        Reset the status
+        """
+        pass
 
-        # 3.2. If either of two sides wins the game, do the updating or
-        #      resetting stuff and inform the game process when the ml process
-        #      is ready.
-        if scene_info["status"] != "GAME_ALIVE":
-            # Do some updating or resetting stuff
-            ball_served = False
-
-            # 3.2.1 Inform the game process that
-            #       the ml process is ready for the next round
-            comm.ml_ready()
-            continue
-
-        # 3.3 Put the code here to handle the scene information
-
-        # 3.4 Send the instruction for this frame to the game process
-        if not ball_served:
-            comm.send_to_game({"frame": scene_info["frame"], "command": "SERVE_TO_LEFT"})
-            ball_served = True
-        else:
-            if side == "1P":
-                command = ml_loop_for_1P()
-            else:
-                command = ml_loop_for_2P()
-
-            if command == 0:
-                comm.send_to_game({"frame": scene_info["frame"], "command": "NONE"})
-            elif command == 1:
-                comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_RIGHT"})
-            else :
-                comm.send_to_game({"frame": scene_info["frame"], "command": "MOVE_LEFT"})
