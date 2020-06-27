@@ -1,4 +1,4 @@
-import pprint, queue
+import queue
 
 class MLPlay:
     def __init__(self, player):
@@ -83,8 +83,6 @@ class MLPlay:
                     grid[p[0]][p[1]] = [-d[0], -d[1]]
                     q.put(p)
 
-        #pprint.pprint(grid)
-
         if need_brake:
             self.last_command = ['BRAKE']
             return self.last_command
@@ -107,7 +105,6 @@ class MLPlay:
         elif last_move == [0, -1]:
             command.append('MOVE_RIGHT')
 
-        #print(command)
         self.last_command = command
         return command
 
